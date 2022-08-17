@@ -50,7 +50,7 @@ install_precommit_hooks:
 	npx husky install
 
 prettier:
-	npm run prettier:check --silent
+	node_modules/.bin/prettier --config .prettierrc --check --ignore-path .prettierignore ./
 
 eslint:
 	./node_modules/.bin/eslint .
@@ -117,8 +117,8 @@ release_to_github_via_docker_image:  ## Release to Github via docker
 build_utils_docker_image:  ## Build utils docker image
 	docker build -f Dockerfile.utils -t ${IMAGE_UTILS_NAME} .
 
-build_and_publish_npm_via_docker: build build_utils_docker_image
-	docker run --rm \
+build_and_publish_npm_via_docker: ##build build_utils_docker_image
+	docker run --rm --user ${USER} \
 		-e NPM_AUTOMATION_TOKEN=${NPM_AUTOMATION_TOKEN} \
 		${IMAGE_UTILS_NAME} make docker_npm_release
 
@@ -152,6 +152,15 @@ spc: ## Checks if the Release Branch, Tag and Pypi version already exist
 # Angular Build - Old Code
 
 build: check_out_correct_submodule_versions build_compiler copy_proto_files_all_submodules npm_run_build
+	@echo "################### PROMT FOR CHANGING FILE OWNERSHIP FROM ROOT TO YOU ##########################"
+	@for f in `ls -la | grep root | cut -c 57-200`; \
+	do \
+		sudo chown `whoami`:`whoami` $$f && echo $$f; \
+	done
+	npm i eslint --save-dev
+	npm i prettier --save-dev
+	npm i @typescript-eslint/eslint-plugin --save-dev
+	npm i husky --save-dev
 
 check_out_correct_submodule_versions:
 	@echo "START checking out correct submodule versions ..."
