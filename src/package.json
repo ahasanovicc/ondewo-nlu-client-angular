@@ -21,7 +21,6 @@
     "submodule_update": "git submodule update --init --recursive",
     "generate": "docker run -it -v ${PWD}:/input-volume -v ${PWD}/..:/output-volume ondewo-angular-proto-compiler ondewo-nlu-api ondewo",
     "debug": "docker run -it --entrypoint /bin/bash -v ${PWD}:/input-volume -v ${PWD}/..:/output-volume ondewo-angular-proto-compiler",
-    "publish-npm": "npm publish ../npm --access public",
     "test-in-ondewo-aim": "npm run build && rm -rf ../../ondewo-aim/node_modules/@ondewo/nlu-client-angular/* && cp ../npm/* ../../ondewo-aim/node_modules/@ondewo/nlu-client-angular/. -R"
   },
   "peerDependencies": {

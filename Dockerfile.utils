@@ -5,9 +5,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Vienna
 
 ENV GITHUB_GH_TOKEN=<GITHUB_GH_TOKEN>
+ENV NPM_AUTOMATION_TOKEN=<NPM_AUTOMATION_TOKEN>
 
 RUN apt-get update -qq  \
-  && apt-get dist-upgrade -qq -y --no-install-recommends --fix-missing make tmux vim sed tree tk-dev curl sudo tzdata \
+  && apt-get dist-upgrade -qq -y --no-install-recommends --fix-missing make tmux vim sed tree tk-dev curl nodejs npm sudo tzdata \
   && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime  \
   && echo $TZ > /etc/timezone \
   && dpkg-reconfigure --frontend noninteractive tzdata \
@@ -31,6 +32,8 @@ COPY LICENSE .
 COPY README.md .
 
 COPY RELEASE.md .
+
+COPY npm npm
 
 # run the container forever
 CMD tail -f /dev/null

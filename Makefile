@@ -14,7 +14,7 @@ export
 ########################################################
 # 		Variables
 ########################################################
-ONDEWO_NLU_VERSION = 2.9.0
+ONDEWO_NLU_VERSION = 2.9.1
 
 NLU_API_GIT_BRANCH=tags/2.10.0
 ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/2.0.0
@@ -26,6 +26,7 @@ GOOGLE_PROTOS_DIR=${GOOGLE_APIS_DIR}/google
 NPM_USERNAME?=ENTER_HERE_YOUR_NPM_USERNAME
 NPM_PASSWORD?=ENTER_HERE_YOUR_NPM_PASSWORD
 GITHUB_GH_TOKEN?=
+NPM_AUTOMATION_TOKEN?=
 IMAGE_UTILS_NAME=ondewo-nlu-client-utils-angular:${ONDEWO_NLU_VERSION}
 
 CURRENT_RELEASE_NOTES=`cat RELEASE.md \
@@ -67,48 +68,26 @@ help: ## Print usage info about help targets
 makefile_chapters: ## Shows all sections of Makefile
 	@echo `cat Makefile| grep "########################################################" -A 1 | grep -v "########################################################"`
 
-
-
-
-
 ########################################################
 #       Repo Specific Make Targets
 ########################################################
 
-release: create_release_branch create_release_tag
+release:
 	@echo "Start Release"
+	make build_and_publish_npm_via_docker
+	make create_release_branch
+	make create_release_tag
+	make release_to_github_via_docker_image
 
 gh_release: build_utils_docker_image release_to_github_via_docker_image
 
 npm_release:
 	@echo "Start NPM Release"
-	cd src && npm run release && cd ..
+	npm publish ./npm --access public --dry-run
 	@echo "Finished NPM Release"
-
-
-
-
-build_code: check_out_correct_submodule_versions build_compiler
-	@echo "Start building"
-	docker run -t -v ${PWD}/src:/input-volume -v ${PWD}:/output-volume ${IMAGE_UTILS_NAME} ondewo-nlu-api ondewo
-	@echo "Finished building"
-
-check_out_correct_submodule_versions:
-	@echo "START checking out correct submodule versions ..."
-	git submodule update --init --recursive
-	git -C ${NLU_APIS_DIR} fetch --all
-	git -C ${NLU_APIS_DIR} checkout ${NLU_API_GIT_BRANCH}
-	git -C ${ONDEWO_PROTO_COMPILER_DIR} fetch --all
-	git -C ${ONDEWO_PROTO_COMPILER_DIR} checkout ${ONDEWO_PROTO_COMPILER_GIT_BRANCH}
-	@echo "DONE checking out correct submodule versions."
 
 update_package:
 	@sed -i "s/\"version\": \"[0-9]*.[0-9]*.[0-9]\"/\"version\": \"${ONDEWO_NLU_VERSION}\"/g" package.json
-
-build_compiler:
-	cd ${ONDEWO_PROTO_COMPILER_DIR}/angular && \
-	sh build.sh . && \
-	cd ../../..
 
 create_release_branch: ## Create Release Branch and push it to origin
 	git checkout -b "release/${ONDEWO_NLU_VERSION}"
@@ -124,11 +103,6 @@ login_to_gh: ## Login to Github CLI with Access Token
 build_gh_release: ## Generate Github Release with CLI
 	gh release create --repo $(GH_REPO) "$(ONDEWO_NLU_VERSION)" -n "$(CURRENT_RELEASE_NOTES)" -t "Release ${ONDEWO_NLU_VERSION}"
 
-
-
-
-
-
 push_to_gh: login_to_gh build_gh_release
 	@echo 'Released to Github'
 
@@ -140,6 +114,30 @@ release_to_github_via_docker_image:  ## Release to Github via docker
 
 build_utils_docker_image:  ## Build utils docker image
 	docker build -f Dockerfile.utils -t ${IMAGE_UTILS_NAME} .
+
+build_and_publish_npm_via_docker: build build_utils_docker_image
+	docker run --rm \
+		-e NPM_AUTOMATION_TOKEN=${NPM_AUTOMATION_TOKEN} \
+		${IMAGE_UTILS_NAME} make docker_npm_release
+
+docker_npm_release:
+	@npm config set //registry.npmjs.org/:_authToken=${NPM_AUTOMATION_TOKEN}
+	npm whoami
+	make npm_release
+
+########################################################
+#		DEVOPS-ACCOUNTS
+
+ondewo_release: spc clone_devops_accounts run_release_with_devops ## Release with credentials from devops-accounts repo
+	@rm -rf ${DEVOPS_ACCOUNT_GIT}
+
+clone_devops_accounts: ## Clones devops-accounts repo
+	if [ -d $(DEVOPS_ACCOUNT_GIT) ]; then rm -Rf $(DEVOPS_ACCOUNT_GIT); fi
+	git clone git@bitbucket.org:ondewo/${DEVOPS_ACCOUNT_GIT}.git
+
+run_release_with_devops:
+	$(eval info:= $(shell cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH & cat ${DEVOPS_ACCOUNT_DIR}/account_npm.env | grep NPM_AUTOMATION_TOKEN ))
+	make release $(info)
 
 spc: ## Checks if the Release Branch, Tag and Pypi version already exist
 	$(eval filtered_branches:= $(shell git branch --all | grep "release/${ONDEWO_NLU_VERSION}"))
@@ -167,7 +165,12 @@ spc: ## Checks if the Release Branch, Tag and Pypi version already exist
 
 build: check_out_correct_submodule_versions copy_proto_files_all_submodules npm_run_build
 
-
+check_out_correct_submodule_versions:
+	@echo "START checking out correct submodule versions ..."
+	git submodule update --init --recursive
+	git -C ${NLU_APIS_DIR} fetch --all
+	git -C ${NLU_APIS_DIR} checkout ${NLU_API_GIT_BRANCH}
+	@echo "DONE checking out correct submodule versions."
 
 copy_proto_files_all_submodules: copy_proto_files_for_google_api
 
