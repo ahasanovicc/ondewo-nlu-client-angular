@@ -18,7 +18,7 @@ ONDEWO_NLU_VERSION = 2.9.1
 
 NLU_API_GIT_BRANCH=tags/2.10.0
 ONDEWO_PROTO_COMPILER_GIT_BRANCH=tags/2.0.0
-ONDEWO_PROTO_COMPILER_DIR=src/ondewo-proto-compiler
+ONDEWO_PROTO_COMPILER_DIR=ondewo-proto-compiler
 NLU_APIS_DIR=src/ondewo-nlu-api
 NLU_PROTOS_DIR=${NLU_APIS_DIR}/ondewo
 GOOGLE_APIS_DIR=${NLU_APIS_DIR}/googleapis
@@ -106,6 +106,8 @@ build_gh_release: ## Generate Github Release with CLI
 push_to_gh: login_to_gh build_gh_release
 	@echo 'Released to Github'
 
+build_compiler:
+	cd ondewo-proto-compiler/angular && sh build.sh
 
 release_to_github_via_docker_image:  ## Release to Github via docker
 	docker run --rm \
@@ -135,8 +137,8 @@ clone_devops_accounts: ## Clones devops-accounts repo
 	if [ -d $(DEVOPS_ACCOUNT_GIT) ]; then rm -Rf $(DEVOPS_ACCOUNT_GIT); fi
 	git clone git@bitbucket.org:ondewo/${DEVOPS_ACCOUNT_GIT}.git
 
-run_release_with_devops:
-	$(eval info:= $(shell cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH & cat ${DEVOPS_ACCOUNT_DIR}/account_npm.env | grep NPM_AUTOMATION_TOKEN ))
+run_release_with_devops: #cat ${DEVOPS_ACCOUNT_DIR}/account_github.env | grep GITHUB_GH
+	$(eval info:= $(shell echo GITHUB_GH_TOKEN=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 & cat ${DEVOPS_ACCOUNT_DIR}/account_npm.env | grep NPM_AUTOMATION_TOKEN ))
 	make release $(info)
 
 spc: ## Checks if the Release Branch, Tag and Pypi version already exist
@@ -146,30 +148,18 @@ spc: ## Checks if the Release Branch, Tag and Pypi version already exist
 	@if test "$(filtered_tags)" != ""; then echo "-- Test 2: Tag exists!!" & exit 1; else echo "-- Test 2: Tag is fine";fi
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ########################################################
-# OLD STUFF - DONT TOUCH ------------------------------------------
+# Angular Build - Old Code
 
-build: check_out_correct_submodule_versions copy_proto_files_all_submodules npm_run_build
+build: check_out_correct_submodule_versions build_compiler copy_proto_files_all_submodules npm_run_build
 
 check_out_correct_submodule_versions:
 	@echo "START checking out correct submodule versions ..."
 	git submodule update --init --recursive
 	git -C ${NLU_APIS_DIR} fetch --all
 	git -C ${NLU_APIS_DIR} checkout ${NLU_API_GIT_BRANCH}
+	git -C ${ONDEWO_PROTO_COMPILER_DIR} fetch --all
+	git -C ${ONDEWO_PROTO_COMPILER_DIR} checkout ${ONDEWO_PROTO_COMPILER_GIT_BRANCH}
 	@echo "DONE checking out correct submodule versions."
 
 copy_proto_files_all_submodules: copy_proto_files_for_google_api

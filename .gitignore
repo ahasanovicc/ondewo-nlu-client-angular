@@ -3,3 +3,4 @@ npm
 ondewo-nlu-api/*
 .idea/
 .vscode/
+node_modules
